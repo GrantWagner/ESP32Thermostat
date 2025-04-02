@@ -14,6 +14,7 @@
 #include <DHT.h>
 
 #include "Icons.h"
+#include "Menu.ino"
 
 //Morse Relay config
 #define CW_SPEED 15
@@ -41,34 +42,29 @@ const struct WifiAp {
   {"Home", "PrettyFlyForAWifi", "599a3c7d7ac9430fb8f4df0d338ee3a5"}
 };
 
-//Sites Config
-//TODO currate sites
-const struct Site {
-  char *title;
-  char *url;
-  char *contentsToDisplay;
-} sites[] = {
-  { "CNN.com", "http://rss.cnn.com/rss/edition.rss", "CNN" },
-  { "BBC News", "https://feeds.bbci.co.uk/news/rss.xml", "BBC" },
-  { "BBC News", "https://feeds.bbci.co.uk/news/rss.xml", "NPR" }
-};
-
-
 //State vars
 const int textBufferSize = 13;
 struct stateStruct {
-  int currentWifiAP = 0;
-  int currentNewsFeed = 0;
-  char textBuffer[textBufferSize] = {0};
+  int expectedTemp = 68;
+  int expectedTimer = 4;
 
-  cww_MorseTx morseInstance = 
-    cww_MorseTx(CW_PIN, CW_SPEED);
+  int currentWifiAP = 0;
+
   U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C displayInstance = 
     U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE, DISPLAY_CLOCK, DISPLAY_DATA);
 
   DHT dhtInstance = DHT(DHT_PIN, DHT_TYPE);
   
 } state;
+
+const EnumMenu menu = EnumMenu("Main Menu", {
+  IntegerSelectMenu("Set Temp (F)", state.expectedTemp, 40, 80),
+  IntegerSelectMenu("Set Timer (H)", state.expectedTimer, 1, 12),
+  Item("Exit", [](){ 
+    Serial.println("Exit"); 
+  })
+});
+
 
 const int relayPin = 23;
 bool relayState = false;
@@ -154,14 +150,16 @@ void readNewsState() {
   http.end();
 }
 
-/****************************************************************************************
-/* Display
-/*   [height 8px][Logo] [Source Name] [justify left] SSID: [SSID] [wifi bargraph icon]
-/*   [height 1px]
-/*   [height 1px] [morse line out]
-/*   [height 1px]
-/*   [output or menu item]
-/***************************************************************************************/
+/*
+ ***************************************************************************************
+ * Display
+ *   [height 8px][Logo] [Source Name] [justify left] SSID: [SSID] [wifi bargraph icon]
+ *   [height 1px]
+ *   [height 1px] [morse line out]
+ *   [height 1px]
+ *   [output or menu item]
+ ***************************************************************************************
+ */
 void displayBuffer(char *logBuffer) {
 //    Serial.println(logBuffer);
     
