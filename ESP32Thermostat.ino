@@ -96,12 +96,15 @@ MenuConfig menuConfig = {
   .display = display
 };
 
-EnumMenu menu = EnumMenu("Main", {
-  IntegerSelectMenu("Set Temp (F)", state.expectedTemp, 40, 80),
-  IntegerSelectMenu("Set Timer (H)", state.expectedTimer, 1, 12),
-  Item("Exit", [](){ 
+IntegerSelectMenu tempMenu = IntegerSelectMenu("Set Temp (F)", state.expectedTemp, 40, 80);
+IntegerSelectMenu timerMenu = IntegerSelectMenu("Set Timer (H)", state.expectedTimer, 1, 12);
+Item exitMenu = Item("Exit", [](){ 
     Serial.println("Exit"); 
-  })
+  });
+EnumMenu menu = EnumMenu("Main", {
+  &tempMenu,
+  &timerMenu,
+  &exitMenu
 });
 
 // const int relayPin = 23;

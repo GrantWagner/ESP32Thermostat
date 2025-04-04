@@ -17,10 +17,8 @@ class Menu {
   public: 
   // virtual bool isIdle() = 0;
   //TODO make virtual 
-  bool process(MenuConfig &config) {
-    return true;
-  };
-
+  virtual bool process(MenuConfig &config) = 0;
+  
   std::string getLabel() {
     return label;
   }
@@ -37,18 +35,18 @@ class Menu {
 
 class EnumMenu: public Menu {
   public: 
-  EnumMenu(std::string inputLabel, std::vector<Menu> inputItems) : Menu(inputLabel) {
+  EnumMenu(std::string inputLabel, std::vector<Menu*> inputItems) : Menu(inputLabel) {
     items.reserve(inputItems.size());
-    for (const Menu &item: inputItems)
+    for (Menu *item: inputItems)
       items.push_back(item);
   }
 
-  void process(MenuConfig &config);
+  bool process(MenuConfig &config);
 
   private:
   Menu *childProcessing = NULL;
   int index = 0;
-  std::vector<Menu> items;
+  std::vector<Menu*> items;
 };
 
 class IntegerSelectMenu: public Menu {
@@ -57,6 +55,8 @@ class IntegerSelectMenu: public Menu {
     this->min = min;
     this->max = max;
   }
+
+  bool process(MenuConfig &config);
 
   private:
   int &value;
@@ -68,6 +68,8 @@ class Item: public Menu {
   public:
   Item(std::string label, std::function<void()> body): Menu(label), body(body) {}
 
+  bool process(MenuConfig &config);
+
   private:
   std::function<void()> body;
 };
@@ -75,52 +77,94 @@ class Item: public Menu {
 bool lastUp = false;
 bool lastEnter = false;
 bool lastDown = false;
-void EnumMenu::process(MenuConfig &config) {
+bool debounce(int pin, bool &lastValue) {
+    bool valueRaw = digitalRead(pin) == HIGH;
+    bool value = valueRaw && !lastValue;
+    lastValue = valueRaw;
+
+    return value;
+}
+
+bool EnumMenu::process(MenuConfig &config) {
   if (this->childProcessing != NULL) {
     Serial.println("Child PRocessing.");
     bool isDone = childProcessing->process(config);
     if (isDone)
       childProcessing = NULL;
-  } else {
-    Serial.println("Menu Processing.");
-    bool upRaw = digitalRead(config.buttonUpPin) == HIGH;
-    bool up = upRaw && !lastUp;
-    lastUp = upRaw;
-
-    bool enterRaw = digitalRead(config.buttonEnterPin) == HIGH;
-    bool enter = enterRaw && !lastEnter;
-    lastEnter = enterRaw;
-
-    int downRaw = digitalRead(config.buttonDownPin) == HIGH;
-    bool down = downRaw && !lastDown;
-    lastDown = downRaw;
-
-    Serial.printf("Buttons, up: %s, down: %s, enter: %s.\n", 
-      up ? "HIGH" : "LOW",
-      down ? "HIGH" : "LOW",
-      enter ? "HIGH" : "LOW");
-
-    if (down) {
-      Serial.println("Processing Down");
-      index++;
-      if (index >= items.size())
-        index = items.size()-1;
-    } else if (up) {
-      Serial.println("Processing UP");
-      index--;
-      if (index < 0)
-        index = 0;
-    } else if (enter) {
-      Serial.println("Processing Enter");
-      childProcessing = &items[index];
-    }
-
-    //TODO if not idle
-    std::string minorText = getLabel();
-    std::string majorText = items[index].getLabel().c_str();
-    config.display(minorText, majorText);
-    //TODO else if idle?
+    return false;
   }
+
+  Serial.println("Menu Processing.");
+  bool up = debounce(config.buttonUpPin, lastUp);
+  bool enter = debounce(config.buttonEnterPin, lastEnter);
+  bool down = debounce(config.buttonDownPin, lastDown);
+  Serial.printf("Buttons, up: %s, down: %s, enter: %s.\n", 
+    up ? "HIGH" : "LOW",
+    down ? "HIGH" : "LOW",
+    enter ? "HIGH" : "LOW");
+
+  if (down) {
+    Serial.println("Processing Down");
+    index++;
+    if (index >= items.size())
+      index = items.size()-1;
+  } else if (up) {
+    Serial.println("Processing UP");
+    index--;
+    if (index < 0)
+      index = 0;
+  } else if (enter) {
+    Serial.println("Processing Enter");
+    childProcessing = items[index];
+  }
+
+  //TODO if not idle
+  std::string minorText = getLabel();
+  std::string majorText = items[index]->getLabel();
+  config.display(minorText, majorText);
+  //TODO else if idle?
+  return false;
 }
+
+bool IntegerSelectMenu::process(MenuConfig &config) {
+  Serial.println("Integer Select Processing.");
+  if (value < min)
+    value = min;
+  if (value > max)
+    value = max;
+
+  bool up = debounce(config.buttonUpPin, lastUp);
+  bool enter = debounce(config.buttonEnterPin, lastEnter);
+  bool down = debounce(config.buttonDownPin, lastDown);
+  Serial.printf("Buttons, up: %s, down: %s, enter: %s.\n", 
+    up ? "HIGH" : "LOW",
+    down ? "HIGH" : "LOW",
+    enter ? "HIGH" : "LOW");
+
+  if (down) {
+    Serial.println("Processing Down");
+    if (value > min)
+      value = value - 1;
+  } else if (up) {
+    Serial.println("Processing UP");
+    if (value < max)
+      value = value + 1;
+  } else if (enter) {
+    Serial.println("Processing Enter");
+    return true;
+  }
+
+  std::string minorText = getLabel();
+  char buffer[20] = {0};
+  sprintf(buffer, "Value: %d", value);
+  std::string majorText = std::string(buffer);
+  config.display(minorText, majorText);
+  return false;
+}
+
+bool Item::process(MenuConfig &config) {
+  return true;
+}
+
 
 #endif
