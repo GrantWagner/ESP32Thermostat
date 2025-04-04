@@ -1,3 +1,6 @@
+#ifndef _ICONS_H_
+#define _ICONS_H_
+
 //Note, each byte needs to be reversed
 static unsigned char logo[] = {
   0b00000000, 0b00000000,
@@ -69,3 +72,5 @@ static unsigned char wifi4B[] = {
   0b11111100, 0b01111111,
   0b11111111, 0b11111110,
 };
+
+#endif
