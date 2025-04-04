@@ -72,6 +72,9 @@ class Item: public Menu {
   std::function<void()> body;
 };
 
+bool lastUp = false;
+bool lastEnter = false;
+bool lastDown = false;
 void EnumMenu::process(MenuConfig &config) {
   if (this->childProcessing != NULL) {
     Serial.println("Child PRocessing.");
@@ -79,28 +82,35 @@ void EnumMenu::process(MenuConfig &config) {
     if (isDone)
       childProcessing = NULL;
   } else {
-    //TODO debounce
     Serial.println("Menu Processing.");
-    int up = digitalRead(config.buttonUpPin);
-    int enter = digitalRead(config.buttonEnterPin);
-    int down = digitalRead(config.buttonDownPin);
+    bool upRaw = digitalRead(config.buttonUpPin) == HIGH;
+    bool up = upRaw && !lastUp;
+    lastUp = upRaw;
+
+    bool enterRaw = digitalRead(config.buttonEnterPin) == HIGH;
+    bool enter = enterRaw && !lastEnter;
+    lastEnter = enterRaw;
+
+    int downRaw = digitalRead(config.buttonDownPin) == HIGH;
+    bool down = downRaw && !lastDown;
+    lastDown = downRaw;
 
     Serial.printf("Buttons, up: %s, down: %s, enter: %s.\n", 
-      up == HIGH ? "HIGH" : "LOW",
-      down == HIGH ? "HIGH" : "LOW",
-      enter == HIGH ? "HIGH" : "LOW");
+      up ? "HIGH" : "LOW",
+      down ? "HIGH" : "LOW",
+      enter ? "HIGH" : "LOW");
 
-    if (down == HIGH) {
+    if (down) {
       Serial.println("Processing Down");
+      index++;
+      if (index >= items.size())
+        index = items.size()-1;
+    } else if (up) {
+      Serial.println("Processing UP");
       index--;
       if (index < 0)
         index = 0;
-    } else if (up == HIGH) {
-      Serial.println("Processing UP");
-      index--;
-      if (index >= items.size())
-        index = items.size()-1;
-    } else if (enter == HIGH) {
+    } else if (enter) {
       Serial.println("Processing Enter");
       childProcessing = &items[index];
     }
