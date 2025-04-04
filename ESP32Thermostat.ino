@@ -89,22 +89,24 @@ void display(std::string &minorText, std::string &majorText) {
     state.displayInstance.sendBuffer();
 }
 
+void displayIdle() {
+  std::string idleText = std::string("Idle");
+  display(idleText, idleText);
+}
+
 MenuConfig menuConfig = {
   .buttonUpPin = 18,
   .buttonEnterPin = 5,
   .buttonDownPin = 17,
-  .display = display
+  .display = display,
+  .displayIdle = displayIdle
 };
 
 IntegerSelectMenu tempMenu = IntegerSelectMenu("Set Temp (F)", state.expectedTemp, 40, 80);
 IntegerSelectMenu timerMenu = IntegerSelectMenu("Set Timer (H)", state.expectedTimer, 1, 12);
-Item exitMenu = Item("Exit", [](){ 
-    Serial.println("Exit"); 
-  });
 EnumMenu menu = EnumMenu("Main", {
   &tempMenu,
-  &timerMenu,
-  &exitMenu
+  &timerMenu
 });
 
 // const int relayPin = 23;

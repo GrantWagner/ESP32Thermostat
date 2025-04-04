@@ -11,12 +11,16 @@ struct MenuConfig {
   uint8_t buttonDownPin;
 
   std::function<void(std::string &minorText, std::string &majorText)> display;
+  std::function<void()> displayIdle;
 };
+
+bool lastUp = false;
+bool lastEnter = false;
+bool lastDown = false;
+int lastInputMillis = 0;
 
 class Menu {
   public: 
-  // virtual bool isIdle() = 0;
-  //TODO make virtual 
   virtual bool process(MenuConfig &config) = 0;
   
   std::string getLabel() {
@@ -33,12 +37,23 @@ class Menu {
 
 };
 
+class ExitItem: public Menu {
+  public:
+  ExitItem(): Menu("Exit") {}
+
+  bool process(MenuConfig &config) {
+    lastInputMillis = 0;
+    return true;
+  }
+} exitItem;
+
 class EnumMenu: public Menu {
   public: 
   EnumMenu(std::string inputLabel, std::vector<Menu*> inputItems) : Menu(inputLabel) {
-    items.reserve(inputItems.size());
+    items.reserve(inputItems.size() + 1);
     for (Menu *item: inputItems)
       items.push_back(item);
+    items.push_back(&exitItem);
   }
 
   bool process(MenuConfig &config);
@@ -64,19 +79,6 @@ class IntegerSelectMenu: public Menu {
   int max;
 };
 
-class Item: public Menu {
-  public:
-  Item(std::string label, std::function<void()> body): Menu(label), body(body) {}
-
-  bool process(MenuConfig &config);
-
-  private:
-  std::function<void()> body;
-};
-
-bool lastUp = false;
-bool lastEnter = false;
-bool lastDown = false;
 bool debounce(int pin, bool &lastValue) {
     bool valueRaw = digitalRead(pin) == HIGH;
     bool value = valueRaw && !lastValue;
@@ -103,6 +105,17 @@ bool EnumMenu::process(MenuConfig &config) {
     down ? "HIGH" : "LOW",
     enter ? "HIGH" : "LOW");
 
+  unsigned long currentMillis = millis();
+  if (up || enter || down) {
+    lastInputMillis = currentMillis;
+  } else if (currentMillis < lastInputMillis 
+    || (currentMillis - lastInputMillis) > 15000) {
+
+    config.displayIdle();
+
+    return false;
+  }  
+
   if (down) {
     Serial.println("Processing Down");
     index++;
@@ -118,11 +131,9 @@ bool EnumMenu::process(MenuConfig &config) {
     childProcessing = items[index];
   }
 
-  //TODO if not idle
   std::string minorText = getLabel();
   std::string majorText = items[index]->getLabel();
   config.display(minorText, majorText);
-  //TODO else if idle?
   return false;
 }
 
@@ -160,10 +171,6 @@ bool IntegerSelectMenu::process(MenuConfig &config) {
   std::string majorText = std::string(buffer);
   config.display(minorText, majorText);
   return false;
-}
-
-bool Item::process(MenuConfig &config) {
-  return true;
 }
 
 
