@@ -10,6 +10,7 @@
 //Library DHT sensor library by Adafruit V1.4.6
 #include <DHT.h>
 
+#include "Secrets.h"
 #include "Icons.h"
 #include "Menu.ino"
 
@@ -27,7 +28,7 @@ const struct WifiAp {
   char *ssid;
   char *password;
 } wifiAps[] = {
-  {"Home", "PrettyFlyForAWifi", "599a3c7d7ac9430fb8f4df0d338ee3a5"}
+  {"Home", SECRETS_HOME_SSID, SECRET_HOME_PASS}
 };
 
 //State vars
