@@ -143,16 +143,6 @@ body {
 var thermostatDial = (function() {
 
     // Utility functions
-    // Create an element with proper SVG namespace, optionally setting its attributes and appending it to another element
-    function createSVGElement(tag,attributes,appendTo) {
-        var element = document.createElementNS('http://www.w3.org/2000/svg',tag);
-        attr(element,attributes);
-        if (appendTo) {
-            appendTo.appendChild(element);
-        }
-        return element;
-    }
-
     // Set attributes for an element
     function attr(element,attrs) {
         for (var i in attrs) {
@@ -291,12 +281,14 @@ var thermostatDial = (function() {
 
         var tickArray = [];
         for (var iTick=0; iTick<options.numTicks; iTick++) {
-            tickArray.push(createSVGElement('path',{d:pointsToPath(tickPoints)},ticks));
+            var element = document.createElementNS('http://www.w3.org/2000/svg','path');
+            var attributes={d:pointsToPath(tickPoints)};
+            attr(element,attributes);
+            ticks.appendChild(element);
+            tickArray.push(element);
+
         };
 
-        /*
-         * RENDER
-         */
         function render() {
             renderHvacState();
             renderTicks();
@@ -305,9 +297,6 @@ var thermostatDial = (function() {
         }
         render();
 
-        /*
-         * RENDER - ticks
-         */
         function renderTicks() {
             var vMin, vMax;
                 vMin = Math.min(self.ambient_temperature, self.target_temperature);
@@ -324,9 +313,6 @@ var thermostatDial = (function() {
             });
         }
 
-        /*
-         * RENDER - current temperature
-         */
         function renderCurrentTemperature() {
             var lblAmbient_text = document.getElementById('dial_current_label');
             lblAmbient_text.textContent = self.ambient_temperature;
@@ -344,18 +330,12 @@ var thermostatDial = (function() {
             });
         }
 
-        /*
-         * RENDER - target temperature
-         */
         function renderTargetTemperature() {
             var targetText = document.getElementById('dial_target_label');
             targetText.textContent = Math.floor(self.target_temperature);
         }
 
 
-        /*
-         * RENDER - HVAC state
-         */
         function renderHvacState() {
             var svg = document.getElementById('dial__svg');
 
