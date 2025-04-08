@@ -184,20 +184,6 @@ var thermostatDial = (function() {
         }).join(' ')+'Z';
     }
 
-    function circleToPath(cx, cy, r) {
-        return [
-            "M",cx,",",cy,
-            "m",0-r,",",0,
-            "a",r,",",r,0,1,",",0,r*2,",",0,
-            "a",r,",",r,0,1,",",0,0-r*2,",",0,
-            "z"
-        ].join(' ').replace(/\s,\s/g,",");
-    }
-
-    function donutPath(cx,cy,rOuter,rInner) {
-        return circleToPath(cx,cy,rOuter) + " " + circleToPath(cx,cy,rInner);
-    }
-
     // Restrict a number to a min + max range
     function restrictToRange(val,min,max) {
         if (val < min) return min;
@@ -302,6 +288,7 @@ var thermostatDial = (function() {
             [properties.radius-1.5, properties.ticksInnerRadius+20]
         ];
         var theta = properties.tickDegrees/options.numTicks;
+
         var tickArray = [];
         for (var iTick=0; iTick<options.numTicks; iTick++) {
             tickArray.push(createSVGElement('path',{d:pointsToPath(tickPoints)},ticks));
