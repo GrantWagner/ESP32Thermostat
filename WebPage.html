@@ -101,7 +101,18 @@ body {
 <body>
 
 <div id='container'>
-    <div id='thermostat'></div>
+    <div id='thermostat'>
+<svg id="dial__svg" width="100%" height="100%" viewBox="0 0 400 400" class="dial dial--state--off">
+    <circle cx="200" cy="200" r="200" class="dial__shape"></circle>
+<!--TODO can this be replaced with a different circle-->
+    <path d="M 200,200 m -196,0 a 196,196 0 1,0 392,0 a 196,196 0 1,0 -392,0 z M 200,200 m -192,0 a 192,192 0 1,0 384,0 a 192,192 0 1,0 -384,0 z" class="dial__editableIndicator"></path>
+
+<g id="dial__ticks" class="dial__ticks">
+</g>
+<text id="dial_target_label" x="200" y="200" class="dial__lbl dial__lbl--target"></text>
+<text id="dial_current_label" class="dial__lbl dial__lbl--ambient" x="91.47623908703707" y="71.31937042267327"></text>
+</svg>
+    </div>
 
     <div id='controls'>
 
@@ -131,10 +142,7 @@ body {
 <script id="rendered-js">
 var thermostatDial = (function() {
 
-    /*
-     * Utility functions
-     */
-
+    // Utility functions
     // Create an element with proper SVG namespace, optionally setting its attributes and appending it to another element
     function createSVGElement(tag,attributes,appendTo) {
         var element = document.createElementNS('http://www.w3.org/2000/svg',tag);
@@ -197,19 +205,11 @@ var thermostatDial = (function() {
         return val;
     }
 
-    // Round a number to the nearest 0.5
-    function roundHalf(num) {
-        return Math.round(num*2)/2;
-    }
-
     function setClass(el, className, state) {
         el.classList[state ? 'add' : 'remove'](className);
     }
 
-    /*
-     * The "MEAT"
-     */
-
+    //Main Methods
     return function(targetElement, options) {
         var self = this;
 
@@ -224,6 +224,7 @@ var thermostatDial = (function() {
             minValue: options.minValue || -20, // Minimum value for target temperature
             maxValue: options.maxValue || 120, // Maximum value for target temperature
             numTicks: options.numTicks || 140, // Number of tick lines to display around the dial
+//TODO move this to properties
             onSetTargetTemperature: options.onSetTargetTemperature || function() {}, // Function called when new target temperature set by the dial
         };
 
@@ -231,6 +232,7 @@ var thermostatDial = (function() {
          * Properties - calculated from options in many cases
          */
         var properties = {
+            //TODO move this to options
             tickDegrees: 300, //  Degrees of the dial that should be covered in tick lines
             rangeValue: options.maxValue - options.minValue,
             radius: options.diameter/2,
@@ -253,6 +255,7 @@ var thermostatDial = (function() {
 
         /*
          * Property getter / setters
+         //TODO can this be replaced with public values?
          */
         Object.defineProperty(this,'target_temperature',{
             get: function() {
@@ -268,7 +271,7 @@ var thermostatDial = (function() {
                 return state.ambient_temperature;
             },
             set: function(val) {
-                state.ambient_temperature = roundHalf(+val);
+                state.ambient_temperature = val;
                 render();
             }
         });
@@ -284,34 +287,8 @@ var thermostatDial = (function() {
             }
         });
 
-        /*
-         * SVG
-         */
-        var svg = createSVGElement('svg',{
-            width: '100%', //options.diameter+'px',
-            height: '100%', //options.diameter+'px',
-            viewBox: '0 0 '+options.diameter+' '+options.diameter,
-            class: 'dial'
-        },targetElement);
-        // CIRCULAR DIAL
-        var circle = createSVGElement('circle',{
-            cx: properties.radius,
-            cy: properties.radius,
-            r: properties.radius,
-            class: 'dial__shape'
-        },svg);
-        // EDITABLE INDICATOR
-        var editCircle = createSVGElement('path',{
-            d: donutPath(properties.radius,properties.radius,properties.radius-4,properties.radius-8),
-            class: 'dial__editableIndicator',
-        },svg);
-
-        /*
-         * Ticks
-         */
-        var ticks = createSVGElement('g',{
-            class: 'dial__ticks'
-        },svg);
+        // Add Dial Ticks
+        var ticks = document.getElementById('dial__ticks');
         var tickPoints = [
             [properties.radius-1, properties.ticksOuterRadius],
             [properties.radius+1, properties.ticksOuterRadius],
@@ -329,24 +306,6 @@ var thermostatDial = (function() {
         for (var iTick=0; iTick<options.numTicks; iTick++) {
             tickArray.push(createSVGElement('path',{d:pointsToPath(tickPoints)},ticks));
         };
-
-        /*
-         * Labels
-         */
-        var lblTarget = createSVGElement('text',{
-            x: properties.radius,
-            y: properties.radius,
-            class: 'dial__lbl dial__lbl--target'
-        },svg);
-        var lblTarget_text = document.createTextNode('');
-        lblTarget.appendChild(lblTarget_text);
-        //
-        var lblAmbient = createSVGElement('text',{
-            class: 'dial__lbl dial__lbl--ambient'
-        },svg);
-        var lblAmbient_text = document.createTextNode('');
-        lblAmbient.appendChild(lblAmbient_text);
-        //
 
         /*
          * RENDER
@@ -368,7 +327,6 @@ var thermostatDial = (function() {
                 vMax = Math.max(self.ambient_temperature, self.target_temperature);
             var min = restrictToRange(Math.round((vMin-options.minValue)/properties.rangeValue * options.numTicks),0,options.numTicks-1);
             var max = restrictToRange(Math.round((vMax-options.minValue)/properties.rangeValue * options.numTicks),0,options.numTicks-1);
-            //
             tickArray.forEach(function(tick,iTick) {
                 var isLarge = iTick==min || iTick==max;
                 var isActive = iTick >= min && iTick <= max;
@@ -383,7 +341,8 @@ var thermostatDial = (function() {
          * RENDER - current temperature
          */
         function renderCurrentTemperature() {
-            lblAmbient_text.nodeValue = Math.floor(self.ambient_temperature);
+            var lblAmbient_text = document.getElementById('dial_current_label');
+            lblAmbient_text.textContent = self.ambient_temperature;
             var peggedValue = restrictToRange(self.ambient_temperature, options.minValue, options.maxValue);
             degs = properties.tickDegrees * (peggedValue-options.minValue)/properties.rangeValue - properties.offsetDegrees;
             if (peggedValue > self.target_temperature) {
@@ -392,7 +351,7 @@ var thermostatDial = (function() {
                 degs -= 8;
             }
             var pos = rotatePoint(properties.lblAmbientPosition,degs,[properties.radius, properties.radius]);
-            attr(lblAmbient,{
+            attr(lblAmbient_text,{
                 x: pos[0],
                 y: pos[1]
             });
@@ -402,7 +361,8 @@ var thermostatDial = (function() {
          * RENDER - target temperature
          */
         function renderTargetTemperature() {
-            lblTarget_text.nodeValue = Math.floor(self.target_temperature);
+            var targetText = document.getElementById('dial_target_label');
+            targetText.textContent = Math.floor(self.target_temperature);
         }
 
 
@@ -410,6 +370,8 @@ var thermostatDial = (function() {
          * RENDER - HVAC state
          */
         function renderHvacState() {
+            var svg = document.getElementById('dial__svg');
+
             Array.prototype.slice.call(svg.classList).forEach(function(c) {
                 if (c.match(/^dial--state--/)) {
                     svg.classList.remove(c);
@@ -476,9 +438,12 @@ var thermostatDial = (function() {
                 dxy = (Math.abs(dy) > Math.abs(dx)) ? dy : dx;
             };
             var dValue = (dxy*getSizeRatio())/(options.diameter)*properties.rangeValue;
-            self.target_temperature = roundHalf(_drag.startTemperature+dValue);
+
+            //maybe math.round()?
+            self.target_temperature = _drag.startTemperature+dValue;
         }
 
+        var svg = document.getElementById('dial__svg');
         svg.addEventListener('mousedown',dragStart);
         svg.addEventListener('touchstart',dragStart);
 
@@ -494,7 +459,7 @@ var thermostatDial = (function() {
          * Helper functions
          */
         function restrictTargetTemperature(t) {
-            return restrictToRange(roundHalf(t),options.minValue,options.maxValue);
+            return restrictToRange(t,options.minValue,options.maxValue);
         }
 
         function angle(point) {
