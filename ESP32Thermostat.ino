@@ -1,18 +1,23 @@
 #define DHT_DEBUG
 
-//Base Arduion Wifi
+//Base Arduino Wifi
 #include <WiFi.h>
 #include <HTTPClient.h>
 
 //Library U8g2 by Oliver V2.35.30
+//For the Display
 #include <U8g2lib.h>
 
 //Library DHT sensor library by Adafruit V1.4.6
+//For the humidity and temp sensor
 #include <DHT.h>
 
 #include "Secrets.h"
 #include "Icons.h"
 #include "Menu.ino"
+
+//TODO Created manually by running 'xxd -i WebPage.html > WebPage.html.h'
+#include "WebPage.html.h"
 
 //Display Config
 #define DISPLAY_CLOCK 22
@@ -158,65 +163,7 @@ void setup() {
   Serial.println("Setup done.");
 }
 
-// void readNewsState() {
-//   Serial.println("readNewsState");
 
-//   if (WiFi.status() != WL_CONNECTED) {
-//     //TODO state = connecting
-//     return;
-//   }
-
-//   HTTPClient http;
-//   http.begin(sites[state.currentNewsFeed].url);
-//   int httpCode = http.GET();
-
-//   if (httpCode != HTTP_CODE_OK) {
-//     //TODO, frequently returns -7, Why?
-//     char logBuffer[textBufferSize];
-//     sprintf(logBuffer, "httpCode = %d", httpCode);
-//     Serial.println(logBuffer);
-//       //TODO, cleaner error handling
-//   }
-
-//   WiFiClient *stream = http.getStreamPtr();
-
-//   char *startTag = "<title>";
-//   char *endTag = "</title>";
-//   char inputBuffer[textBufferSize] = {0};
-//   inputBuffer[textBufferSize-1] = 0;
-//   int bufferInputIndex = 0;
-//   int bufferOutputIndex = 0;
-//   bool writing = false;
-
-
-//   while (http.connected() && stream->available()) {
-
-//     //TODO parse out headlines
-//     char inputChar = stream->read();
-
-//     for ( int index = 0; index < textBufferSize - 2; index++) {
-//       inputBuffer[index] = inputBuffer[index + 1];
-//     }
-//     inputBuffer[textBufferSize-2] = inputChar;
-//     inputBuffer[textBufferSize-1] = 0;
-
-//     char logBuffer[100];
-//     sprintf(logBuffer, "writing: %d, input char %c, buffer '%s'", writing, inputChar, inputBuffer);
-//     Serial.println(logBuffer);
-
-//     if (strstr(inputBuffer, startTag) != NULL) {
-//       writing = true;
-//       memset(inputBuffer, ' ', textBufferSize-1);
-//     } else if (strstr(inputBuffer, endTag) != NULL) {
-//       writing = false;
-//       inputBuffer[textBufferSize-strlen(endTag)] = 0;
-    
-//     } else if (writing) {
-//       displayBuffer(inputBuffer);
-//     }
-//   }
-//   http.end();
-// }
 
 void testTempSensor() {
   //Only run once ever 3 seconds, and properly handle the rollover
@@ -296,37 +243,7 @@ void httpServerProcess() {
           }
           
           // Display the HTML web page
-          client.println("<!DOCTYPE html><html>");
-          client.println("<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
-          client.println("<link rel=\"icon\" href=\"data:,\">");
-          // CSS to style the on/off buttons 
-          // Feel free to change the background-color and font-size attributes to fit your preferences
-          client.println("<style>html { font-family: Helvetica; display: inline-block; margin: 0px auto; text-align: center;}");
-          client.println(".button { background-color: #4CAF50; border: none; color: white; padding: 16px 40px;");
-          client.println("text-decoration: none; font-size: 30px; margin: 2px; cursor: pointer;}");
-          client.println(".button2 {background-color: #555555;}</style></head>");
-          
-          // Web Page Heading
-          client.println("<body><h1>ESP32 Web Server</h1>");
-          
-          // Display current state, and ON/OFF buttons for GPIO 26  
-          client.println("<p>GPIO 26 - State " + output26State + "</p>");
-          // If the output26State is off, it displays the ON button       
-          if (output26State=="off") {
-            client.println("<p><a href=\"/26/on\"><button class=\"button\">ON</button></a></p>");
-          } else {
-            client.println("<p><a href=\"/26/off\"><button class=\"button button2\">OFF</button></a></p>");
-          } 
-              
-          // Display current state, and ON/OFF buttons for GPIO 27  
-          client.println("<p>GPIO 27 - State " + output27State + "</p>");
-          // If the output27State is off, it displays the ON button       
-          if (output27State=="off") {
-            client.println("<p><a href=\"/27/on\"><button class=\"button\">ON</button></a></p>");
-          } else {
-            client.println("<p><a href=\"/27/off\"><button class=\"button button2\">OFF</button></a></p>");
-          }
-          client.println("</body></html>");
+          client.println((char*)WebPage_html);
           
           // The HTTP response ends with another blank line
           client.println();
