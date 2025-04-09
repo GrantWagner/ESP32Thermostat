@@ -96,6 +96,14 @@ body {
   padding-bottom: 1em;
   border-bottom: 2px solid #ccc;
 }
+
+.button {
+    margin: 2px auto;
+    background-color: #1DB21D;
+    border: none;
+    color: white;
+    padding: 16px 40px;
+    display: block;
 }
 </style>
 </head>
@@ -149,10 +157,11 @@ the pattern wants to start at the 3 oclock position, dash offset is 25% of a cir
             <input type='range' min='0' max='480' value='120' id='input_timer' step='1' />
         </label>
 
-        <span>
-            <input type='button' id='input_start' step='1' >Start</input>
+        <span style='margin:2px auto;display: block;'>
+            <button class="button" id='input_start' >Start</button>
         </span>
 
+        <p/>
         <p>
             Debug
         </p>
