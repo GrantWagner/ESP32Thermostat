@@ -120,7 +120,7 @@ body {
                     stroke-width="4"
                     stroke="#ddd"
                 ></circle>
-                <circle r="196" cx="200" cy="200" fill="transparent"
+                <circle id="timerLine" r="196" cx="200" cy="200" fill="transparent"
                     stroke-linecap="round"
                     stroke-width="4"
                     stroke="#009B9D"
@@ -132,7 +132,7 @@ dash array are in viewpoint units, so percentages need to be multipied by 2 * 19
 the pattern wants to start at the 3 oclock position, dash offset is 25% of a circle
 -->
                     
-                <text id='timer_remains' class="dial dial__lbl dial__lbl--target" x="200" y="200">31</text>
+                <text id='timer_remains' class="dial dial__lbl dial__lbl--target" x="200" y="200"/>
         </svg>
     </div>
 
@@ -145,6 +145,18 @@ the pattern wants to start at the 3 oclock position, dash offset is 25% of a cir
             <input type='range' min='40' max='80' value='68' id='input_target_temperature' step='1' />
         </label>
 
+        <label><span>Timer </span>
+            <input type='range' min='0' max='480' value='120' id='input_timer' step='1' />
+        </label>
+
+        <span>
+            <input type='button' id='input_start' step='1' >Start</input>
+        </span>
+
+        <p>
+            Debug
+        </p>
+
         <label><span>Current Temperature</span>
             <input type='range' min='-20' max='120' value='55' id='input_ambient_temperature' step='1' />
         </label>
@@ -155,6 +167,12 @@ the pattern wants to start at the 3 oclock position, dash offset is 25% of a cir
                 <option value='heating'>Heating</option>
             </select>
         </label>
+
+        <label><span>Shown timer</span>
+            <input type='range' min='0' max='7200' value='120' id='input_debug_timer' step='1' />
+        </label>
+
+
     </div>
 </div>
 
@@ -213,7 +231,7 @@ var thermostatDial = (function() {
          */
         options = options || {};
         options = {
-            //TODOPull these out and join them somehow with with the html vlaues
+            //TODO Pull these out and join them somehow with with the html vlaues
 
             diameter: options.diameter || 400,
             minValue: options.minValue || -20, // Minimum value for target temperature
@@ -283,6 +301,7 @@ var thermostatDial = (function() {
         });
 
         // Add Dial Ticks
+        //TODO this is true rendering, put in a method.
         var ticks = document.getElementById('dial__ticks');
         var tickPoints = [
             [properties.radius-1, properties.ticksOuterRadius],
@@ -308,6 +327,7 @@ var thermostatDial = (function() {
 
         };
 
+        //TODO rename these to "update"
         function render() {
             renderHvacState();
             renderTicks();
@@ -476,11 +496,81 @@ var thermostatDial = (function() {
     };
 })();
 
+//TODO why are these functions that return functions? feels wrong.
+var timerDial = (function() {
+    return function() {
+        /*
+         * Object state
+         */
+        var state = {
+            timerTotalSeconds: 7200,
+            timerCurrentSeconds: 3600 + 1380 + 45,
+        };
+
+        /*
+         * Property getter / setters
+         //TODO can this be replaced with public values?
+         //TODO remove "timer from name and state vars
+         */
+        Object.defineProperty(this,'timerTotalSeconds',{
+            get: function() {
+                return state.timerTotalSeconds;
+            },
+            set: function(val) {
+                state.timerTotalSeconds = +val; // TODO limit
+                update();
+            }
+        });
+
+        Object.defineProperty(this,'timerCurrentSeconds',{
+            get: function() {
+                return state.timerCurrentSeconds;
+            },
+            set: function(val) {
+                state.timerCurrentSeconds = +val; // TODO limit
+                update();
+            }
+        });
+
+        function update() {
+            const currentSeconds = state.timerCurrentSeconds;
+            var output = "";
+            
+            const hours = Math.floor(currentSeconds / 3600);
+            if (hours != 0)
+                output += hours + ":";
+            const minutes = Math.floor((currentSeconds % 3600) / 60);
+            if (hours != 0 || minutes != 0) {
+                if (hours != 0 && minutes < 10)
+                    output += "0"
+                output += minutes + ":";
+            }
+            const seconds = currentSeconds % 60;
+            if ((hours != 0 || minutes != 0) && seconds < 10)
+                output += "0";
+            output += seconds;
+                
+            document.getElementById('timer_remains')
+                .textContent = output;
+
+            const totalSeconds = state.timerTotalSeconds;
+            const circumference = 2 * 196 * Math.PI;
+            const completePercentage = (currentSeconds / totalSeconds);
+            const arcFilled = Math.floor(circumference * completePercentage);
+            const arcEmpty = circumference - arcFilled;
+            document.getElementById('timerLine')
+                .style.strokeDasharray = arcFilled + " " + arcEmpty;
+        }
+    };
+})();
+
 var nest = new thermostatDial(document.getElementById('thermostat'),{
     onSetTargetTemperature: function(v) {
         document.getElementById('input_target_temperature').value = +v;
     }
 });
+
+var timer = new timerDial();
 
 document.getElementById('input_target_temperature').addEventListener('input',function() {
     nest.target_temperature = this.value;
@@ -491,6 +581,11 @@ document.getElementById('input_ambient_temperature').addEventListener('input',fu
 document.getElementById('input_state').addEventListener('change',function() {
     nest.hvac_state = this.value;
 });
+
+document.getElementById('input_debug_timer').addEventListener('change',function() {
+    timer.timerCurrentSeconds = this.value;
+});
+
 </script>
 </body>
 </html>
