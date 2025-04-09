@@ -206,9 +206,11 @@ void httpServerProcess() {
   previousTime = currentTime;
   Serial.println("New Client.");          // print a message out in the serial port
   String currentLine = "";                // make a String to hold incoming data from the client
+
   while (client.connected() && currentTime - previousTime <= timeoutTime) {  // loop while the client's connected
     currentTime = millis();
-    if (client.available()) {             // if there's bytes to read from the client,
+    if (!client.available) continue;
+
       char c = client.read();             // read a byte, then
       Serial.write(c);                    // print it out the serial monitor
       header += c;
@@ -255,7 +257,6 @@ void httpServerProcess() {
       } else if (c != '\r') {  // if you got anything else but a carriage return character,
         currentLine += c;      // add it to the end of the currentLine
       }
-    }
   }
 
   // Clear the header variable
