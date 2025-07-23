@@ -512,6 +512,7 @@ var timerDial = (function() {
          * Object state
          */
         var state = {
+            running: false,
             timerTotalSeconds: 7200,
             timerCurrentSeconds: 3600 + 1380 + 45,
         };
@@ -531,6 +532,16 @@ var timerDial = (function() {
             }
         });
 
+        Object.defineProperty(this,'running',{
+            get: function() {
+                return state.running;
+            },
+            set: function(val) {
+                state.running = val; // TODO limit
+                update();
+            }
+        });
+
         Object.defineProperty(this,'timerCurrentSeconds',{
             get: function() {
                 return state.timerCurrentSeconds;
@@ -541,6 +552,14 @@ var timerDial = (function() {
             }
         });
 
+        setInterval(function() {
+            if (state.timerCurrentSeconds <= 0) running = false
+            if (!state.running) return;
+            
+            state.timerCurrentSeconds -= 1;
+            update();
+        }, 1000);
+        
         function update() {
             const currentSeconds = state.timerCurrentSeconds;
             var output = "";
@@ -583,17 +602,87 @@ var timer = new timerDial();
 
 document.getElementById('input_target_temperature').addEventListener('input',function() {
     nest.target_temperature = this.value;
+    saveState();
 });
 document.getElementById('input_ambient_temperature').addEventListener('input',function() {
     nest.ambient_temperature = this.value;
+    saveState();
 });
 document.getElementById('input_state').addEventListener('change',function() {
     nest.hvac_state = this.value;
+    saveState();
 });
-
 document.getElementById('input_debug_timer').addEventListener('change',function() {
     timer.timerCurrentSeconds = this.value;
+    saveState();
 });
+document.getElementById('input_start').addEventListener('change',function() {
+    timer.running = this.value;
+    saveState();
+});
+
+function loadState() {
+    fetch('/data', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+    })
+    .then(response => {
+        if (!response.ok)
+            throw new Error(`HTTP error! status: ${response.status}`);
+
+        return response.json();
+    })
+    .then(data => {
+        nest.ambient_temperature = data.currentTemp;
+        nest.target_temperature = data.targetTemp;
+        timer.timerMaxSeconds = data.maxTimerSeconds;
+        timer.timerCurrentSeconds = data.currentTimerSeconds;
+        timer.running = data.running;
+
+        document.getElementById('onclick') //TODO
+        ;
+            
+
+    })
+    .catch(error => {
+        console.error('Could not retrieve data', error);
+    });
+}
+
+setInterval(loadState, 10_000);
+
+function saveState() {
+    fetch('/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            currentTemp: nest.ambient_temperature,
+            targetTemp: nest.target_temperature,
+            maxTimerSeconds: timer.timerMaxSeconds,
+            currentTimerSeconds: timer.timerCurrentSeconds,
+            running: timer.running
+        })
+    })
+    .then(response => {
+        if (!response.ok)
+            throw new Error(`HTTP error! status: ${response.status}`);
+
+        return response.json();
+    })
+    .then(data => {
+        nest.ambient_temperature = data.currentTemp;
+        nest.target_temperature = data.targetTemp;
+        timer.timerMaxSeconds = data.maxTimerSeconds;
+        timer.timerCurrentSeconds = data.currentTimerSeconds;
+        timer.running = data.running;
+
+        document.getElementById('input_start').style
+
+    })
+    .catch(error => {
+        console.error('Could not retrieve data', error);
+    });
+}
 
 </script>
 </body>

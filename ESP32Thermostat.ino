@@ -149,7 +149,6 @@ void setup() {
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
   server.begin();
-
 //TODO end wifi
 
   state.displayInstance.begin();
@@ -207,57 +206,82 @@ void httpServerProcess() {
   Serial.println("New Client.");          // print a message out in the serial port
   String currentLine = "";                // make a String to hold incoming data from the client
 
-  while (client.connected() && currentTime - previousTime <= timeoutTime) {  // loop while the client's connected
-    currentTime = millis();
-    if (!client.available) continue;
+  boolean readingHeader = true;
+  //TODO reading body
+  boolean readingSecondBody = false;
+  int contentLength = 0;
+  while (client.connected() 
+      && currentTime - previousTime <= timeoutTime
+      && (!readingSecondBody
+       || currentLine.length() <= contentLength)) {  // loop while the client's connected
 
-      char c = client.read();             // read a byte, then
-      Serial.write(c);                    // print it out the serial monitor
+    currentTime = millis();
+    if (!client.available()) continue;
+
+    char c = client.read();             // read a byte, then
+    Serial.write(c);                    // print it out the serial monitor
+    if (readingHeader)
       header += c;
-      if (c == '\n') {                    // if the byte is a newline character
-        // if the current line is blank, you got two newline characters in a row.
-        // that's the end of the client HTTP request, so send a response:
-        if (currentLine.length() == 0) {
-          // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
-          // and a content-type so the client knows what's coming, then a blank line:
-          client.println("HTTP/1.1 200 OK");
-          client.println("Content-type:text/html");
-          client.println("Connection: close");
-          client.println();
-          
-          // turns the GPIOs on and off
-          if (header.indexOf("GET /26/on") >= 0) {
-            Serial.println("GPIO 26 on");
-            output26State = "on";
-            // digitalWrite(output26, HIGH);
-          } else if (header.indexOf("GET /26/off") >= 0) {
-            Serial.println("GPIO 26 off");
-            output26State = "off";
-            // digitalWrite(output26, LOW);
-          } else if (header.indexOf("GET /27/on") >= 0) {
-            Serial.println("GPIO 27 on");
-            output27State = "on";
-            // digitalWrite(output27, HIGH);
-          } else if (header.indexOf("GET /27/off") >= 0) {
-            Serial.println("GPIO 27 off");
-            output27State = "off";
-            // digitalWrite(output27, LOW);
-          }
-          
-          // Display the HTML web page
-          client.println((char*)WebPage_html);
-          
-          // The HTTP response ends with another blank line
-          client.println();
-          // Break out of the while loop
-          break;
-        } else { // if you got a newline, then clear currentLine
-          currentLine = "";
-        }
-      } else if (c != '\r') {  // if you got anything else but a carriage return character,
-        currentLine += c;      // add it to the end of the currentLine
+
+    if (c == '\r') {
+    } else if ((c == '\n') && (currentLine.length() != 0)) {
+
+      for (char &c: currentLine)
+        c = std::tolower(c);
+      //TODO rename, correct spelling
+      int contentLegthIdex = currentLine.indexOf("content-length: ");
+      if (contentLegthIdex > 0) {
+        sscanf(currentLine.c_str() + contentLegthIdex, "%d", &contentLength);
+        Serial.printf("\nContent Length is %d\n", contentLength);
       }
+
+      readingHeader = false;
+      currentLine = "";
+    } else if (c != '\n') {
+      currentLine += c;      // add it to the end of the currentLine
+    } else if ( header.indexOf("POST") > 0 && !readingSecondBody) {
+      Serial.println("Handling body seperator");
+      readingSecondBody = true;
+//      contentLength = 101;
+      currentLine = "";
+    }
   }
+
+  Serial.println();
+  Serial.print("Current Line is ");
+  Serial.println(currentLine);
+      
+  // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
+  // and a content-type so the client knows what's coming, then a blank line:
+  client.println("HTTP/1.1 200 OK");
+  client.println("Connection: close");
+  
+  // turns the GPIOs on and off
+  char * jsonBody = R"=({
+                        "currentTemp": 45,
+                        "targetTemp": 68,
+                        "maxTimerSeconds": 14400,
+                        "currentTimerSeconds": 5025,
+                        "running": false
+                      }
+    )=";
+  if (header.indexOf("GET /data") >= 0) {
+    client.println("Content-type:application/json");
+    client.println();
+    client.println(jsonBody);
+  } else if (header.indexOf("POST /data") >= 0 ) {
+    client.println("Content-type:application/json");
+    client.println();
+    client.println(jsonBody);
+  } else {
+    // Display the HTML web page
+    client.println("Content-type:text/html");
+    client.println();
+    client.println((char*)WebPage_html);
+  }
+  
+  // The HTTP response ends with another blank line
+  client.println();
 
   // Clear the header variable
   header = "";
