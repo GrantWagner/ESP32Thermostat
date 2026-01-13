@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<!-- With respect to https://codepen.io/dalhundal/pen/KpabZB -->
+<html>
+<head>
+<style>
+
+body {
+  background-color: #CCCCCC;
+}
+#thermostat {
+  width: 50vmin;
+  height: 50vmin;
+  margin: 0 auto;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+.dial {
+  -webkit-user-select: none;
+     -moz-user-select: none;
+      -ms-user-select: none;
+          user-select: none;
+}
+.dial.away .dial__lbl--target {
+  visibility: hidden;
+}
+.dial .dial__shape {
+  transition: fill 0.5s;
+}
+.dial__editableIndicator {
+  stroke: white;
+  stroke-width: 4;
+  fill: transparent;
+  fill-rule: evenodd;
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+.dial--edit .dial__editableIndicator {
+  opacity: 1;
+}
+.dial--state--off .dial__shape {
+  fill: #222;
+}
+.dial--state--heating .dial__shape {
+  fill: #E36304;
+}
+.dial__ticks path {
+  fill: rgba(255, 255, 255, 0.3);
+}
+.dial__ticks path.active {
+  fill: rgba(255, 255, 255, 0.8);
+}
+.dial text {
+  fill: white;
+  text-anchor: middle;
+  font-family: Helvetica, sans-serif;
+  alignment-baseline: central;
+}
+.dial__lbl--target {
+  font-size: 120px;
+  font-weight: bold;
+}
+.dial__lbl--ambient {
+  font-size: 22px;
+  font-weight: bold;
+}
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 300;
+  font-stretch: normal;
+  src: url(https://fonts.gstatic.com/s/opensans/v40/memSYaGs126MiZpBA-UvWbX2vVnXBbObj2OVZyOOSr4dVJWUgsiH0B4gaVc.ttf) format('truetype');
+}
+#controls {
+  font-family: Open Sans;
+  background-color: rgba(255, 255, 255, 0.25);
+  padding: 20px;
+  border-radius: 5px;
+  position: absolute;
+  left: 50%;
+  transform: translatex(-50%);
+  margin-top: 20px;
+}
+#controls label {
+  text-align: left;
+  display: block;
+}
+#controls label span {
+  display: inline-block;
+  width: 200px;
+  text-align: right;
+  font-size: 0.8em;
+  text-transform: uppercase;
+}
+#controls p {
+  margin: 0;
+  margin-bottom: 1em;
+  padding-bottom: 1em;
+  border-bottom: 2px solid #ccc;
+}
+
+.button {
+    margin: 2px auto;
+    background-color: #1DB21D;
+    border: none;
+    color: white;
+    padding: 16px 40px;
+    display: block;
+}
+</style>
+</head>
+
+<body>
+
+<div id='container'>
+    <div id='thermostat' style='width:50%;display:inline-block;float:left;'>
+        <svg id="dial__svg" width="100%" height="100%" viewBox="0 0 400 400" class="dial dial--state--off">
+            <circle cx="200" cy="200" r="200" class="dial__shape"/>
+            <circle cx="200" cy="200" r="194" class="dial__editableIndicator"/>
+            <g id="dial__ticks" class="dial__ticks"/>
+            <text id="dial_target_label" x="200" y="200" class="dial__lbl dial__lbl--target"></text>
+            <text id="dial_current_label" class="dial__lbl dial__lbl--ambient" x="91.47623908703707" y="71.31937042267327"></text>
+        </svg>
+    </div>
+
+    <div id='timer'  style='width:50%;display:inline-block'>
+        <svg class="dial dial--state--offs" id="circle_second" viewBox="0 0 400 400">
+                <circle r="196" cx="200" cy="200" fill="transparent"
+                    stroke-linecap="round"
+                    stroke-width="4"
+                    stroke="#ddd"
+                ></circle>
+                <circle id="timerLine" r="196" cx="200" cy="200" fill="transparent"
+                    stroke-linecap="round"
+                    stroke-width="4"
+                    stroke="#009B9D"
+                    stroke-dasharray='307 922'
+                    stroke-dashoffset='307'
+                ></circle>
+<!--
+dash array are in viewpoint units, so percentages need to be multipied by 2 * 196 * PI
+the pattern wants to start at the 3 oclock position, dash offset is 25% of a circle
+-->
+                    
+                <text id='timer_remains' class="dial dial__lbl dial__lbl--target" x="200" y="200"/>
+        </svg>
+    </div>
+
+    <div id='controls'>
+        <p>
+            Click and hold the dial, then drag left / right to change the target temperature.
+        </p>
+
+        <label><span>Target Temperature</span>
+            <input type='range' min='40' max='80' value='68' id='input_target_temperature' step='1' />
+        </label>
+
+        <label><span>Timer </span>
+            <input type='range' min='0' max='480' value='120' id='input_timer' step='1' />
+        </label>
+
+        <span style='margin:2px auto;display: block;'>
+            <button class="button" id='input_start' >Start</button>
+        </span>
+
+        <p/>
+        <p>
+            Debug
+        </p>
+
+        <label><span>Current Temperature</span>
+            <input type='range' min='-20' max='120' value='55' id='input_ambient_temperature' step='1' />
+        </label>
+
+        <label><span>State</span>
+            <select id='input_state'>
+                <option value='off'>Off</option>
+                <option value='heating'>Heating</option>
+            </select>
+        </label>
+
+        <label><span>Shown timer</span>
+            <input type='range' min='0' max='7200' value='120' id='input_debug_timer' step='1' />
+        </label>
+
+
+    </div>
+</div>
+
+<script id="rendered-js">
+var thermostatDial = (function() {
+
+    // Utility functions
+    // Set attributes for an element
+    function attr(element,attrs) {
+        for (var i in attrs) {
+            element.setAttribute(i,attrs[i]);
+        }
+    }
+
+    // Rotate a cartesian point about given origin by X degrees
+    function rotatePoint(point, angle, origin) {
+        var radians = angle * Math.PI/180;
+        var x = point[0]-origin[0];
+        var y = point[1]-origin[1];
+        var x1 = x*Math.cos(radians) - y*Math.sin(radians) + origin[0];
+        var y1 = x*Math.sin(radians) + y*Math.cos(radians) + origin[1];
+        return [x1,y1];
+    }
+
+    // Rotate an array of cartesian points about a given origin by X degrees
+    function rotatePoints(points, angle, origin) {
+        return points.map(function(point) {
+            return rotatePoint(point, angle, origin);
+        });
+    }
+
+    // Given an array of points, return an SVG path string representing the shape they define
+    function pointsToPath(points) {
+        return points.map(function(point, iPoint) {
+            return (iPoint>0?'L':'M') + point[0] + ' ' + point[1];
+        }).join(' ')+'Z';
+    }
+
+    // Restrict a number to a min + max range
+    function restrictToRange(val,min,max) {
+        if (val < min) return min;
+        if (val > max) return max;
+        return val;
+    }
+
+    function setClass(el, className, state) {
+        el.classList[state ? 'add' : 'remove'](className);
+    }
+
+    //Main Methods
+    return function(targetElement, options) {
+        var self = this;
+
+        /*
+         * Options
+         */
+        options = options || {};
+        options = {
+            //TODO Pull these out and join them somehow with with the html vlaues
+
+            diameter: options.diameter || 400,
+            minValue: options.minValue || -20, // Minimum value for target temperature
+            maxValue: options.maxValue || 120, // Maximum value for target temperature
+            numTicks: options.numTicks || 140, // Number of tick lines to display around the dial
+//TODO move this to properties
+            onSetTargetTemperature: options.onSetTargetTemperature || function() {}, // Function called when new target temperature set by the dial
+        };
+
+        /*
+         * Properties - calculated from options in many cases
+         */
+        var properties = {
+            //TODO move this to options
+            tickDegrees: 300, //  Degrees of the dial that should be covered in tick lines
+            rangeValue: options.maxValue - options.minValue,
+            radius: options.diameter/2,
+            ticksOuterRadius: options.diameter / 30,
+            ticksInnerRadius: options.diameter / 8,
+            hvac_states: ['off', 'heating'],
+            dragLockAxisDistance: 15,
+        }
+        properties.lblAmbientPosition = [properties.radius, properties.ticksOuterRadius-(properties.ticksOuterRadius-properties.ticksInnerRadius)/2]
+        properties.offsetDegrees = 180-(360-properties.tickDegrees)/2;
+
+        /*
+         * Object state
+         */
+        var state = {
+            target_temperature: options.minValue,
+            ambient_temperature: options.minValue,
+            hvac_state: properties.hvac_states[0],
+        };
+
+        /*
+         * Property getter / setters
+         //TODO can this be replaced with public values?
+         */
+        Object.defineProperty(this,'target_temperature',{
+            get: function() {
+                return state.target_temperature;
+            },
+            set: function(val) {
+                state.target_temperature = restrictTargetTemperature(+val);
+                render();
+            }
+        });
+        Object.defineProperty(this,'ambient_temperature',{
+            get: function() {
+                return state.ambient_temperature;
+            },
+            set: function(val) {
+                state.ambient_temperature = val;
+                render();
+            }
+        });
+        Object.defineProperty(this,'hvac_state',{
+            get: function() {
+                return state.hvac_state;
+            },
+            set: function(val) {
+                if (properties.hvac_states.indexOf(val)>=0) {
+                    state.hvac_state = val;
+                    render();
+                }
+            }
+        });
+
+        // Add Dial Ticks
+        //TODO this is true rendering, put in a method.
+        var ticks = document.getElementById('dial__ticks');
+        var tickPoints = [
+            [properties.radius-1, properties.ticksOuterRadius],
+            [properties.radius+1, properties.ticksOuterRadius],
+            [properties.radius+1, properties.ticksInnerRadius],
+            [properties.radius-1, properties.ticksInnerRadius]
+        ];
+        var tickPointsLarge = [
+            [properties.radius-1.5, properties.ticksOuterRadius],
+            [properties.radius+1.5, properties.ticksOuterRadius],
+            [properties.radius+1.5, properties.ticksInnerRadius+20],
+            [properties.radius-1.5, properties.ticksInnerRadius+20]
+        ];
+        var theta = properties.tickDegrees/options.numTicks;
+
+        var tickArray = [];
+        for (var iTick=0; iTick<options.numTicks; iTick++) {
+            var element = document.createElementNS('http://www.w3.org/2000/svg','path');
+            var attributes={d:pointsToPath(tickPoints)};
+            attr(element,attributes);
+            ticks.appendChild(element);
+            tickArray.push(element);
+
+        };
+
+        //TODO rename these to "update"
+        function render() {
+            renderHvacState();
+            renderTicks();
+            renderTargetTemperature();
+            renderCurrentTemperature();
+        }
+        render();
+
+        function renderTicks() {
+            var vMin, vMax;
+                vMin = Math.min(self.ambient_temperature, self.target_temperature);
+                vMax = Math.max(self.ambient_temperature, self.target_temperature);
+            var min = restrictToRange(Math.round((vMin-options.minValue)/properties.rangeValue * options.numTicks),0,options.numTicks-1);
+            var max = restrictToRange(Math.round((vMax-options.minValue)/properties.rangeValue * options.numTicks),0,options.numTicks-1);
+            tickArray.forEach(function(tick,iTick) {
+                var isLarge = iTick==min || iTick==max;
+                var isActive = iTick >= min && iTick <= max;
+                attr(tick,{
+                    d: pointsToPath(rotatePoints(isLarge ? tickPointsLarge: tickPoints,iTick*theta-properties.offsetDegrees,[properties.radius, properties.radius])),
+                    class: isActive ? 'active' : ''
+                });
+            });
+        }
+
+        function renderCurrentTemperature() {
+            var lblAmbient_text = document.getElementById('dial_current_label');
+            lblAmbient_text.textContent = self.ambient_temperature;
+            var peggedValue = restrictToRange(self.ambient_temperature, options.minValue, options.maxValue);
+            degs = properties.tickDegrees * (peggedValue-options.minValue)/properties.rangeValue - properties.offsetDegrees;
+            if (peggedValue > self.target_temperature) {
+                degs += 8;
+            } else {
+                degs -= 8;
+            }
+            var pos = rotatePoint(properties.lblAmbientPosition,degs,[properties.radius, properties.radius]);
+            lblAmbient_text.setAttribute('x',pos[0]);
+            lblAmbient_text.setAttribute('y',pos[1]);
+        }
+
+        function renderTargetTemperature() {
+            var targetText = document.getElementById('dial_target_label');
+            targetText.textContent = Math.floor(self.target_temperature);
+        }
+
+
+        function renderHvacState() {
+            var svg = document.getElementById('dial__svg');
+
+            Array.prototype.slice.call(svg.classList).forEach(function(c) {
+                if (c.match(/^dial--state--/)) {
+                    svg.classList.remove(c);
+                };
+            });
+            svg.classList.add('dial--state--'+self.hvac_state);
+        }
+
+        /*
+         * Drag to control
+         */
+        var _drag = {
+            inProgress: false,
+            startPoint: null,
+            startTemperature: 0,
+            lockAxis: undefined
+        };
+
+        function eventPosition(ev) {
+            if (ev.targetTouches && ev.targetTouches.length) {
+                return  [ev.targetTouches[0].clientX, ev.targetTouches[0].clientY];
+            } else {
+                return [ev.x, ev.y];
+            };
+        }
+
+        function dragStart(ev) {
+                svg.classList['add']('dial--edit')
+    //~ function setClass(el, className, state) {
+                    //~ el.classList[state ? 'add' : 'remove'](className);
+
+                //~ setClass(svg, 'dial--edit', true);
+                _drag.inProgress = true;
+                _drag.startPoint = eventPosition(ev);
+                _drag.startTemperature = self.target_temperature || options.minValue;
+                _drag.lockAxis = undefined;
+        };
+
+        function dragEnd (ev) {
+    //~ function setClass(el, className, state) {
+                    //~ el.classList[state ? 'add' : 'remove'](className);
+            //~ setClass(svg, 'dial--edit', false);
+            svg.classList['remove']('dial--edit')
+            if (!_drag.inProgress) return;
+            _drag.inProgress = false;
+            if (self.target_temperature != _drag.startTemperature) {
+                if (typeof options.onSetTargetTemperature == 'function') {
+                    options.onSetTargetTemperature(self.target_temperature);
+                };
+            };
+        };
+
+        function dragMove(ev) {
+            ev.preventDefault();
+            if (!_drag.inProgress) return;
+            var evPos =  eventPosition(ev);
+            var dy = _drag.startPoint[1]-evPos[1];
+            var dx = evPos[0] - _drag.startPoint[0];
+            var dxy;
+            if (_drag.lockAxis == 'x') {
+                dxy  = dx;
+            } else if (_drag.lockAxis == 'y') {
+                dxy = dy;
+            } else if (Math.abs(dy) > properties.dragLockAxisDistance) {
+                _drag.lockAxis = 'y';
+                dxy = dy;
+            } else if (Math.abs(dx) > properties.dragLockAxisDistance) {
+                _drag.lockAxis = 'x';
+                dxy = dx;
+            } else {
+                dxy = (Math.abs(dy) > Math.abs(dx)) ? dy : dx;
+            };
+            var dValue = (dxy*getSizeRatio())/(options.diameter)*properties.rangeValue;
+
+            //maybe math.round()?
+            self.target_temperature = _drag.startTemperature+dValue;
+        }
+
+        var svg = document.getElementById('dial__svg');
+        svg.addEventListener('mousedown',dragStart);
+        svg.addEventListener('touchstart',dragStart);
+
+        svg.addEventListener('mouseup',dragEnd);
+        svg.addEventListener('mouseleave',dragEnd);
+        svg.addEventListener('touchend',dragEnd);
+
+        svg.addEventListener('mousemove',dragMove);
+        svg.addEventListener('touchmove',dragMove);
+        //
+
+        /*
+         * Helper functions
+         */
+        function restrictTargetTemperature(t) {
+            return restrictToRange(t,options.minValue,options.maxValue);
+        }
+
+        function angle(point) {
+            var dx = point[0] - properties.radius;
+            var dy = point[1] - properties.radius;
+            var theta = Math.atan(dx/dy) / (Math.PI/180);
+            if (point[0]>=properties.radius && point[1] < properties.radius) {
+                theta = 90-theta - 90;
+            } else if (point[0]>=properties.radius && point[1] >= properties.radius) {
+                theta = 90-theta + 90;
+            } else if (point[0]<properties.radius && point[1] >= properties.radius) {
+                theta = 90-theta + 90;
+            } else if (point[0]<properties.radius && point[1] < properties.radius) {
+                theta = 90-theta+270;
+            }
+            return theta;
+        };
+
+        function getSizeRatio() {
+            return options.diameter / targetElement.clientWidth;
+        }
+
+    };
+})();
+
+//TODO why are these functions that return functions? feels wrong.
+var timerDial = (function() {
+    return function() {
+        /*
+         * Object state
+         */
+        var state = {
+            running: false,
+            timerTotalSeconds: 7200,
+            timerCurrentSeconds: 3600 + 1380 + 45,
+        };
+
+        /*
+         * Property getter / setters
+         //TODO can this be replaced with public values?
+         //TODO remove "timer from name and state vars
+         */
+        Object.defineProperty(this,'timerTotalSeconds',{
+            get: function() {
+                return state.timerTotalSeconds;
+            },
+            set: function(val) {
+                state.timerTotalSeconds = +val; // TODO limit
+                update();
+            }
+        });
+
+        Object.defineProperty(this,'running',{
+            get: function() {
+                return state.running;
+            },
+            set: function(val) {
+                state.running = val; // TODO limit
+                update();
+            }
+        });
+
+        Object.defineProperty(this,'timerCurrentSeconds',{
+            get: function() {
+                return state.timerCurrentSeconds;
+            },
+            set: function(val) {
+                state.timerCurrentSeconds = +val; // TODO limit
+                update();
+            }
+        });
+
+        setInterval(function() {
+            if (state.timerCurrentSeconds <= 0) running = false
+            if (!state.running) return;
+            
+            state.timerCurrentSeconds -= 1;
+            update();
+        }, 1000);
+        
+        function update() {
+            const currentSeconds = state.timerCurrentSeconds;
+            var output = "";
+            
+            const hours = Math.floor(currentSeconds / 3600);
+            if (hours != 0)
+                output += hours + ":";
+            const minutes = Math.floor((currentSeconds % 3600) / 60);
+            if (hours != 0 || minutes != 0) {
+                if (hours != 0 && minutes < 10)
+                    output += "0"
+                output += minutes + ":";
+            }
+            const seconds = currentSeconds % 60;
+            if ((hours != 0 || minutes != 0) && seconds < 10)
+                output += "0";
+            output += seconds;
+                
+            document.getElementById('timer_remains')
+                .textContent = output;
+
+            const totalSeconds = state.timerTotalSeconds;
+            const circumference = 2 * 196 * Math.PI;
+            const completePercentage = (currentSeconds / totalSeconds);
+            const arcFilled = Math.floor(circumference * completePercentage);
+            const arcEmpty = circumference - arcFilled;
+            document.getElementById('timerLine')
+                .style.strokeDasharray = arcFilled + " " + arcEmpty;
+        }
+    };
+})();
+
+var nest = new thermostatDial(document.getElementById('thermostat'),{
+    onSetTargetTemperature: function(v) {
+        document.getElementById('input_target_temperature').value = +v;
+    }
+});
+
+var timer = new timerDial();
+
+document.getElementById('input_target_temperature').addEventListener('input',function() {
+    nest.target_temperature = this.value;
+    saveState();
+});
+document.getElementById('input_ambient_temperature').addEventListener('input',function() {
+    nest.ambient_temperature = this.value;
+    saveState();
+});
+document.getElementById('input_state').addEventListener('change',function() {
+    nest.hvac_state = this.value;
+    saveState();
+});
+document.getElementById('input_debug_timer').addEventListener('change',function() {
+    timer.timerCurrentSeconds = this.value;
+    saveState();
+});
+document.getElementById('input_start').addEventListener('change',function() {
+    timer.running = this.value;
+    saveState();
+});
+
+function loadState() {
+    fetch('/data', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+    })
+    .then(response => {
+        if (!response.ok)
+            throw new Error(`HTTP error! status: ${response.status}`);
+
+        return response.json();
+    })
+    .then(data => {
+        nest.ambient_temperature = data.currentTemp;
+        nest.target_temperature = data.targetTemp;
+        timer.timerMaxSeconds = data.maxTimerSeconds;
+        timer.timerCurrentSeconds = data.currentTimerSeconds;
+        timer.running = data.running;
+
+        document.getElementById('onclick') //TODO
+        ;
+            
+
+    })
+    .catch(error => {
+        console.error('Could not retrieve data', error);
+    });
+}
+
+setInterval(loadState, 10_000);
+
+function saveState() {
+    fetch('/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            currentTemp: nest.ambient_temperature,
+            targetTemp: nest.target_temperature,
+            maxTimerSeconds: timer.timerMaxSeconds,
+            currentTimerSeconds: timer.timerCurrentSeconds,
+            running: timer.running
+        })
+    })
+    .then(response => {
+        if (!response.ok)
+            throw new Error(`HTTP error! status: ${response.status}`);
+
+        return response.json();
+    })
+    .then(data => {
+        nest.ambient_temperature = data.currentTemp;
+        nest.target_temperature = data.targetTemp;
+        timer.timerMaxSeconds = data.maxTimerSeconds;
+        timer.timerCurrentSeconds = data.currentTimerSeconds;
+        timer.running = data.running;
+
+        document.getElementById('input_start').style
+
+    })
+    .catch(error => {
+        console.error('Could not retrieve data', error);
+    });
+}
+
+</script>
+</body>
+</html>
