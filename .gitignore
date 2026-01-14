@@ -31,4 +31,7 @@
 *.out
 *.app
 
+# Idea CLion state
+.pio/**
+
 Secrets.h
