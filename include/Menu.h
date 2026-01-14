@@ -1,9 +1,11 @@
 #ifndef _menu_ino
 #define _menu_ino
 
+#include <Arduino.h>
+#include <functional>
 #include <string>
 #include <vector>
-#include "Icons.h"
+#include "../Icons.h"
 
 struct MenuConfig {
   uint8_t buttonUpPin;

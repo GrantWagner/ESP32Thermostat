@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #define DHT_DEBUG
 
 //Base Arduino Wifi
@@ -12,12 +13,12 @@
 //For the humidity and temp sensor
 #include <DHT.h>
 
-#include "Secrets.h"
-#include "Icons.h"
-#include "Menu.ino"
+#include "../include/Secrets.h"
+#include "../Icons.h"
+#include "../include/Menu.h"
 
 //TODO Created manually by running 'xxd -i WebPage.html > WebPage.html.h'
-#include "WebPage.html.h"
+#include "../include/WebPage.html.h"
 
 //Display Config
 #define DISPLAY_CLOCK 22
