@@ -14,7 +14,7 @@
 #include <DHT.h>
 
 #include "../include/Secrets.h"
-#include "../Icons.h"
+#include "../include/Icons.h"
 #include "../include/Menu.h"
 
 //TODO Created manually by running 'xxd -i WebPage.html > WebPage.html.h'
@@ -30,15 +30,15 @@
 
 //WiFi Config
 const struct WifiAp {
-  char *name;
-  char *ssid;
-  char *password;
+  const char *name;
+  const char *ssid;
+  const char *password;
 } wifiAps[] = {
   {"Home", SECRETS_HOME_SSID, SECRET_HOME_PASS}
 };
 
 //State vars
-const int textBufferSize = 13;
+constexpr int textBufferSize = 13;
 struct stateStruct {
   int expectedTemp = 68;
   int expectedTimer = 4;
@@ -126,7 +126,6 @@ EnumMenu menu = EnumMenu("Main", {
 // }
 
 //TODO move to state
-//TODO can this be SSH?
 WiFiServer server(80);
 
 
@@ -137,10 +136,10 @@ void setup() {
 
 //TODO wifi stuff setup
   WifiAp currentWifiAP = wifiAps[state.currentWifiAP];
-  WiFi.setHostname("GarageThermostat");
+  WiFiClass::setHostname("GarageThermostat");
   WiFi.begin(currentWifiAP.ssid, currentWifiAP.password);
 
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFiClass::status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
@@ -258,7 +257,7 @@ void httpServerProcess() {
   client.println("Connection: close");
   
   // turns the GPIOs on and off
-  char * jsonBody = R"=({
+  const char * jsonBody = R"=({
                         "currentTemp": 45,
                         "targetTemp": 68,
                         "maxTimerSeconds": 14400,

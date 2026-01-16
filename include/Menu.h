@@ -5,7 +5,6 @@
 #include <functional>
 #include <string>
 #include <vector>
-#include "../Icons.h"
 
 struct MenuConfig {
   uint8_t buttonUpPin;
@@ -19,7 +18,7 @@ struct MenuConfig {
 bool lastUp = false;
 bool lastEnter = false;
 bool lastDown = false;
-int lastInputMillis = 0;
+unsigned long lastInputMillis = 0;
 
 class Menu {
   public: 
@@ -30,7 +29,9 @@ class Menu {
   }
 
   protected:
-  Menu(std::string inputLabel) {
+  ~Menu() = default;
+
+  explicit Menu(const std::string &inputLabel) {
     label = inputLabel;
   }
 
@@ -39,41 +40,48 @@ class Menu {
 
 };
 
-class ExitItem: public Menu {
-  public:
+class ExitItem final : public Menu {
+public:
   ExitItem(): Menu("Exit") {}
 
-  bool process(MenuConfig &config) {
+  ~ExitItem() = default;
+
+  bool process(MenuConfig &config) override {
     lastInputMillis = 0;
     return true;
   }
 } exitItem;
 
-class EnumMenu: public Menu {
-  public: 
-  EnumMenu(std::string inputLabel, std::vector<Menu*> inputItems) : Menu(inputLabel) {
+class EnumMenu final : public Menu {
+
+public:
+  EnumMenu(const std::string& inputLabel, const std::vector<Menu*>& inputItems) : Menu(inputLabel) {
     items.reserve(inputItems.size() + 1);
     for (Menu *item: inputItems)
       items.push_back(item);
     items.push_back(&exitItem);
   }
 
-  bool process(MenuConfig &config);
+  ~EnumMenu() = default;
+
+  bool process(MenuConfig &config) override;
 
   private:
-  Menu *childProcessing = NULL;
-  int index = 0;
+  Menu *childProcessing = nullptr;
+  std::vector<Menu*>::size_type index = 0;
   std::vector<Menu*> items;
 };
 
-class IntegerSelectMenu: public Menu {
-  public:
-  IntegerSelectMenu(std::string label, int &value, int min, int max): Menu(label), value(value) {
+class IntegerSelectMenu final : public Menu {
+public:
+  IntegerSelectMenu(const std::string& label, int &value, int min, int max): Menu(label), value(value) {
     this->min = min;
     this->max = max;
   }
 
-  bool process(MenuConfig &config);
+  ~IntegerSelectMenu() = default;
+
+  bool process(MenuConfig &config) override;
 
   private:
   int &value;
@@ -81,7 +89,7 @@ class IntegerSelectMenu: public Menu {
   int max;
 };
 
-bool debounce(int pin, bool &lastValue) {
+inline bool debounce(int pin, bool &lastValue) {
     bool valueRaw = digitalRead(pin) == HIGH;
     bool value = valueRaw && !lastValue;
     lastValue = valueRaw;
@@ -89,12 +97,12 @@ bool debounce(int pin, bool &lastValue) {
     return value;
 }
 
-bool EnumMenu::process(MenuConfig &config) {
-  if (this->childProcessing != NULL) {
-    Serial.println("Child PRocessing.");
+inline bool EnumMenu::process(MenuConfig &config) {
+  if (this->childProcessing != nullptr) {
+    Serial.println("Child PProcessing.");
     bool isDone = childProcessing->process(config);
     if (isDone)
-      childProcessing = NULL;
+      childProcessing = nullptr;
     return false;
   }
 
@@ -139,7 +147,7 @@ bool EnumMenu::process(MenuConfig &config) {
   return false;
 }
 
-bool IntegerSelectMenu::process(MenuConfig &config) {
+inline bool IntegerSelectMenu::process(MenuConfig &config) {
   Serial.println("Integer Select Processing.");
   if (value < min)
     value = min;
@@ -174,6 +182,5 @@ bool IntegerSelectMenu::process(MenuConfig &config) {
   config.display(minorText, majorText);
   return false;
 }
-
 
 #endif
